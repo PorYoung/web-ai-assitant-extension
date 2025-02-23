@@ -4,22 +4,26 @@
     <div class="chat-input-wrapper">
       <textarea v-model="messageInput" @keydown.enter="handleEnterKey" @input="adjustTextareaHeight"
         placeholder="输入消息，按Enter发送，Shift+Enter换行" ref="messageTextarea" rows="1"></textarea>
-
       <div class="chat-toolbar">
-        <button class="toolbar-button" title="引用历史消息">
-          <span>↑</span>
+        <select class="model-selector" v-model="selectedModel">
+          <option v-for="model in modelConfigs" :key="model.name" :value="model">{{ model.name || '未命名模型' }}</option>
+        </select>
+        <button class="toolbar-button" title="引用当前页面" @click="addCurrentPageReference">
+          <span>#️⃣</span>
         </button>
-        <button class="toolbar-button" title="上传图片">
-          <span>📷</span>
+        <button class="toolbar-button" title="模型设置" @click="showModelSettings">
+          <span>⚙️</span>
         </button>
       </div>
     </div>
+    <ModelSettings v-model:modelSettingsVisible="modelSettingsVisible" @save="handleModelConfigsSave" />
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, onMounted } from 'vue';
 import ReferenceList from './ReferenceList.vue';
+import ModelSettings from './ModelSettings.vue';
 
 const props = defineProps({
   initialReferences: {
@@ -29,6 +33,33 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['send']);
+
+// 添加引用当前页面的函数
+const addCurrentPageReference = () => {
+  // 获取当前标签页信息
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs.length > 0 && tabs[0];
+    if (tab) {
+      console.log(tabs);
+
+      if (!tabs[0].url && !tabs[0].id) return;
+
+      const newReference = {
+        type: "page",
+        id: tab.id,
+        tabId: tab.id,
+        url: tab.url,
+        title: tab.title || '未命名页面',
+        description: tab.title || ''
+      };
+
+      // 检查是否已存在相同URL的引用
+      if (!references.value.some(ref => ref.id === newReference.id)) {
+        references.value.push(newReference);
+      }
+    }
+  });
+};
 
 const messageInput = ref('');
 const messageTextarea = ref(null);
@@ -86,6 +117,42 @@ const handleEnterKey = (e) => {
     sendMessage();
   }
 };
+
+const modelSettingsVisible = ref(false);
+const modelConfigs = ref([]);
+const selectedModel = ref(null);
+
+// 从localStorage加载模型配置
+onMounted(() => {
+  const savedConfigs = localStorage.getItem('modelConfigs');
+  if (savedConfigs) {
+    modelConfigs.value = JSON.parse(savedConfigs);
+    if (modelConfigs.value.length > 0) {
+      selectedModel.value = modelConfigs.value[0];
+    }
+  }
+});
+
+// 显示模型设置
+const showModelSettings = () => {
+  modelSettingsVisible.value = true;
+};
+
+// 处理模型配置保存
+const handleModelConfigsSave = (configs) => {
+  modelConfigs.value = configs;
+  if (configs.length > 0 && !configs.includes(selectedModel.value)) {
+    selectedModel.value = configs[0];
+  }
+  emit('modelChange', selectedModel.value);
+};
+
+// 监听模型选择变化
+watch(selectedModel, (newModel) => {
+  if (newModel) {
+    emit('modelChange', newModel);
+  }
+});
 </script>
 
 <style scoped>
@@ -162,5 +229,26 @@ textarea:focus {
 
 .toolbar-button span {
   font-size: 18px;
+}
+
+.model-selector {
+  padding: 4px 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #5f6368;
+  background-color: white;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.model-selector:hover {
+  border-color: #1a73e8;
+}
+
+.model-selector:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
 }
 </style>

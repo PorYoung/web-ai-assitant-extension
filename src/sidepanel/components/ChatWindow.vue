@@ -9,20 +9,27 @@
           <MessageBubble v-if="round.aiMessage" message-type="assistant" :content="round.aiMessage.content"
             :timestamp="round.aiMessage.timestamp" @delete="deleteMessage(round.roundId)" />
         </div>
+        <div v-if="streamingContent" class="message-round">
+          <MessageBubble message-type="assistant" :content="streamingContent" :timestamp="new Date()"
+            :is-streaming="true" />
+        </div>
       </div>
       <div v-else class="no-session">
         <p>请选择或创建一个会话</p>
       </div>
     </div>
-    <ChatInput v-if="currentSession" :initial-references="references" @send="handleSendMessage" />
+    <ChatInput v-if="currentSession" :initial-references="references" @send="handleSendMessage"
+      @modelChange="handleModelChange" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { marked } from 'marked';
 import MessageBubble from './MessageBubble.vue';
 import ChatInput from './ChatInput.vue';
 import { chatStorage } from '../utils/storage';
+import { aiService } from '../services/aiService';
 
 const props = defineProps({
   sessionId: {
@@ -36,6 +43,153 @@ const isLoading = ref(false);
 const hasMoreMessages = ref(true);
 const currentSession = ref(null);
 const isInitSession = ref(true);
+const streamingContent = ref('');
+
+// 处理模型变更
+const handleModelChange = (model) => {
+  if (model) {
+    try {
+      aiService.initializeModel(model);
+    } catch (error) {
+      console.error('初始化模型失败:', error);
+      // 这里可以添加错误提示UI
+    }
+  }
+};
+
+// 处理发送消息
+const handleSendMessage = async (message) => {
+  console.debug(message);
+
+  if (!currentSession.value) return;
+
+  // 获取最近10条历史消息
+  const recentMessages = currentSession.value.messages
+    .slice(-10)
+    .map(round => [
+      round.userMessage ? {
+        role: 'user',
+        content: round.userMessage.content
+      } : null,
+      round.aiMessage ? {
+        role: 'assistant',
+        content: round.aiMessage.content
+      } : null
+    ].filter(msg => msg !== null))
+    .flat()
+    .filter(msg => msg !== null);
+
+  console.debug(recentMessages);
+
+
+  // 处理引用内容
+  const references = message.references || [];
+  const referenceContexts = [];
+
+  let textTypeRefContexts = "### 你需要基于用户提供的引用内容回答用户的问题，用户引用的内容如下：\n\n";
+  let textTypeRefContextsNum = 0;
+  let pageTypeRefContexts = "### 你需要基于用户提供的引用网页回答用户的问题，用户引用的网页内容如下：\n\n";
+  let pageTypeRefContextsNum = 0;
+
+  for (const ref of references) {
+    if (ref.type === 'text') {
+      // 文本类型的引用直接添加
+      textTypeRefContextsNum++;
+      textTypeRefContexts += `======\n引用${textTypeRefContextsNum}. ${ref.content}\n======\n\n`;
+    } else if (ref.type === 'page') {
+      try {
+        let pageContent = '';
+        // 如果有tabId，尝试通过chrome API获取页面内容
+        if (ref.tabId) {
+          try {
+            const response = await chrome.tabs.sendMessage(ref.tabId, { type: 'getPageContent' });
+            pageContent = response.content;
+          } catch (error) {
+            console.warn('通过tabId获取页面内容失败:', error);
+          }
+        }
+
+        // 如果通过tabId获取失败且有url，尝试通过url获取页面内容
+        if (!pageContent && ref.url) {
+          try {
+            // 通过background脚本获取页面内容
+            const response = await chrome.runtime.sendMessage({
+              type: 'fetchUrl',
+              url: ref.url
+            });
+            
+            if (response.success) {
+              const text = response.data;
+              // 简单处理HTML内容，提取文本
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = text;
+              pageContent = tempDiv.textContent || tempDiv.innerText || '';
+            } else {
+              console.warn('通过background获取页面内容失败:', response.error);
+            }
+          } catch (error) {
+            console.warn('通过url获取页面内容失败:', error);
+          }
+        }
+
+        // 如果成功获取内容，添加到引用上下文
+        if (pageContent) {
+          pageTypeRefContextsNum++;
+          pageTypeRefContexts += `======\n引用网页${pageTypeRefContextsNum}. ${ref.title}\n网页链接：${ref.url}\n网页内容：${pageContent}\n======\n\n`;
+        }
+      } catch (error) {
+        console.error('处理网页引用失败:', error);
+      }
+    }
+  }
+
+  if (textTypeRefContextsNum > 0 || pageTypeRefContextsNum > 0) {
+    referenceContexts.push({
+      role: 'system',
+      content: (textTypeRefContextsNum > 0 ? textTypeRefContexts : '') + (pageTypeRefContextsNum > 0 ? pageTypeRefContexts : ''),
+    });
+  }
+
+  // 添加用户消息
+  const newRound = chatStorage.addMessageRound(currentSession.value.id, message);
+  if (newRound) {
+    currentSession.value.messages.push(newRound);
+  }
+
+  // 滚动到底部
+  await nextTick();
+  scrollToBottom();
+
+  // 开始AI响应
+  streamingContent.value = '';
+
+  try {
+    const fullResponse = await aiService.streamResponse(
+      [...referenceContexts, ...recentMessages, {
+        role: 'user',
+        content: message.content
+      }],
+      (response) => {
+        const chunks = marked.parse(response);
+        streamingContent.value = chunks;
+        scrollToBottom();
+      }
+    );
+    // 添加AI响应消息
+    chatStorage.updateAIResponse(currentSession.value.id, newRound.roundId, fullResponse);
+    const round = currentSession.value.messages.find(msg => msg.roundId === newRound.roundId);
+    if (round) {
+      round.aiMessage = {
+        content: fullResponse,
+        timestamp: new Date().toISOString()
+      };
+    }
+    streamingContent.value = '';
+  } catch (error) {
+    console.error('AI响应错误:', error);
+  }
+  return;
+};
 
 // 初始化会话数据
 const initSession = async () => {
@@ -143,7 +297,7 @@ onUnmounted(() => {
 const references = ref([]);
 
 // 处理发送消息
-const handleSendMessage = async (message) => {
+const handleSendMessageMock = async (message) => {
   if (!currentSession.value) return;
 
   // 添加新的对话轮次，包含引用内容
@@ -219,9 +373,7 @@ const scrollToBottom = () => {
     const container = messagesContainer.value;
     const scrollHeight = container.scrollHeight;
     const clientHeight = container.clientHeight;
-    requestAnimationFrame(() => {
-      container.scrollTop = scrollHeight - clientHeight;
-    });
+    container.scrollTop = scrollHeight - clientHeight;
   }
 };
 

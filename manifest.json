@@ -12,7 +12,8 @@
   "permissions": [
     "sidePanel",
     "activeTab",
-    "contextMenus"
+    "contextMenus",
+    "tabs"
   ],
   "side_panel": {
     "default_path": "sidepanel.html"
@@ -22,5 +23,11 @@
   },
   "background": {
     "service_worker": "assets/background.js"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["assets/content_script.js"]
+    }
+  ]
 }

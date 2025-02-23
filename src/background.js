@@ -15,13 +15,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'addToReferences') {
     const reference = {
       type: "page",
+      id: tab.id,
+      tabId: tab.id,
       url: tab.url,
       title: tab.title,
       timestamp: new Date().toISOString()
     };
 
-    // 将引用添加到列表中
-    referencesList.push(reference);
+    // 检查是否已存在相同URL的引用
+    if (!references.value.some(ref => ref.id === reference.id)) {
+      references.value.push(reference);
+    }
 
     // 通知侧边栏更新引用列表
     chrome.runtime.sendMessage({
@@ -40,6 +44,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // 从列表中移除指定引用
     referencesList = referencesList.filter(ref => ref.url !== message.url);
     sendResponse(referencesList);
+  } else if (message.type === 'fetchUrl') {
+    // 处理URL请求
+    fetch(message.url, {
+      method: 'GET',
+      mode: 'cors',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+      })
+      .then(data => {
+        sendResponse({ success: true, data: data });
+      })
+      .catch(error => {
+        console.error('Fetch error:', error);
+        // 如果是跨域错误，尝试不带headers重新请求
+        if (error.message.includes('CORS')) {
+          return fetch(message.url, { mode: 'no-cors' })
+            .then(response => response.text())
+            .then(data => {
+              sendResponse({ success: true, data: data });
+            })
+            .catch(finalError => {
+              sendResponse({ success: false, error: finalError.message });
+            });
+        }
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // 保持消息通道开放以进行异步响应
   }
 });
 
