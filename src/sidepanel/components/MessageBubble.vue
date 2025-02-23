@@ -16,7 +16,7 @@
         </div>
         <div class="message-bubble">
             <div class="message-content">
-                <p>{{ content }}</p>
+                <p v-html="marked.parse(content)"></p>
             </div>
             <div v-if="references && references.length > 0" class="message-references">
                 <button class="reference-button" @click="toggleReferencePanel">
@@ -36,6 +36,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { marked } from 'marked';
 
 const props = defineProps({
     messageType: {
@@ -90,8 +91,8 @@ const formattedTime = computed(() => {
 .message {
     display: flex;
     flex-direction: column;
-    max-width: 85%;
-    min-width: 50%;
+    max-width: 100%;
+    padding: 0 4px;
     animation: fadeIn 0.3s ease-out;
     gap: 4px;
 }
@@ -116,6 +117,7 @@ const formattedTime = computed(() => {
     position: relative;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     transition: all 0.2s ease;
+    overflow-x: auto;
 }
 
 .message-references {
@@ -240,6 +242,7 @@ const formattedTime = computed(() => {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
