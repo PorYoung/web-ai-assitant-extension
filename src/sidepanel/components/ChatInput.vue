@@ -14,6 +14,9 @@
         <button class="toolbar-button" title="模型设置" @click="showModelSettings">
           <span>⚙️</span>
         </button>
+        <button class="toolbar-button" title="清空消息" @click="clearMessages">
+          <span>🗑️</span>
+        </button>
       </div>
     </div>
     <ModelSettings v-model:modelSettingsVisible="modelSettingsVisible" @save="handleModelConfigsSave" />
@@ -32,7 +35,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['send']);
+const emit = defineEmits(['send', 'modelChange', 'clearMessages']);
 
 // 添加引用当前页面的函数
 const addCurrentPageReference = () => {
@@ -80,6 +83,13 @@ const sendMessage = () => {
   });
 
   messageInput.value = '';
+};
+
+// 清空消息
+const clearMessages = () => {
+  if (confirm('确定要清空当前消息列表吗？')) {
+    emit('clearMessages');
+  }
 };
 
 // 调整文本框高度

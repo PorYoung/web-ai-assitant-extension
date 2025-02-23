@@ -19,7 +19,7 @@
       </div>
     </div>
     <ChatInput v-if="currentSession" :initial-references="references" @send="handleSendMessage"
-      @modelChange="handleModelChange" />
+      @modelChange="handleModelChange" @clearMessages="clearMessages" />
   </div>
 </template>
 
@@ -405,6 +405,19 @@ onMounted(async () => {
     }
   });
 });
+// 清空消息
+const clearMessages = async () => {
+  if (!currentSession.value) return;
+
+  // 清空当前会话的消息
+  chatStorage.clearSessionMessages(currentSession.value.id);
+  currentSession.value.messages = [];
+  hasMoreMessages.value = false;
+  isLoading.value = false;
+
+  // 等待DOM更新后调整滚动位置
+  await nextTick();
+};
 </script>
 
 <style scoped>

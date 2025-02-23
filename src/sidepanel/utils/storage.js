@@ -156,6 +156,15 @@ class ChatStorage {
       this.saveSessions(sessions);
     }
   }
+  // 清空会话消息
+  clearSessionMessages(sessionId) {
+    const sessions = this.getSessions();
+    const session = sessions.find(session => session.id === sessionId);
+    if (session) {
+      session.messages = [];
+      this.saveSessions(sessions);
+    }
+  }
 }
 
 export const chatStorage = new ChatStorage();
