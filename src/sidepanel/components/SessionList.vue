@@ -1,13 +1,8 @@
 <template>
   <div class="session-list">
     <div class="sessions">
-      <div
-        v-for="session in sessions"
-        :key="session.id"
-        class="session-item"
-        :class="{ active: currentSessionId === session.id }"
-        @click="selectSession(session.id)"
-      >
+      <div v-for="session in sessions" :key="session.id" class="session-item"
+        :class="{ active: currentSessionId === session.id }" @click="selectSession(session.id)">
         <div class="session-title">{{ session.title }}</div>
         <button class="delete-btn" @click.stop="deleteSession(session.id)">
           <span class="delete-icon">×</span>
@@ -30,6 +25,10 @@ const currentSessionId = ref('');
 // 加载会话列表
 const loadSessions = () => {
   sessions.value = chatStorage.getSessions();
+  if (sessions.value.length === 0) {
+    chatStorage.createSession();
+    sessions.value = chatStorage.getSessions();
+  }
   if (sessions.value.length > 0 && !currentSessionId.value) {
     currentSessionId.value = sessions.value[0].id;
   }
@@ -46,10 +45,10 @@ const createNewSession = () => {
 const deleteSession = (sessionId) => {
   if (confirm('确定要删除这个会话吗？')) {
     chatStorage.deleteSession(sessionId);
-    loadSessions();
     if (currentSessionId.value === sessionId) {
-      currentSessionId.value = sessions.value[0]?.id || '';
+      currentSessionId.value = '';
     }
+    loadSessions();
   }
 };
 

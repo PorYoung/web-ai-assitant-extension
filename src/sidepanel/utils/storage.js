@@ -51,7 +51,8 @@ class ChatStorage {
 
     if (lastMessageId === null) {
       // 首次加载，返回最新的消息
-      return messages.slice(-pageSize).reverse();
+      const start = Math.max(0, messages.length - pageSize);
+      return messages.slice(start);
     } else {
       // 找到最后一条消息的索引
       const lastIndex = messages.findIndex(msg => msg.roundId === lastMessageId);
@@ -59,7 +60,7 @@ class ChatStorage {
       
       // 获取这条消息之前的消息
       const start = Math.max(0, lastIndex - pageSize);
-      return messages.slice(start, lastIndex).reverse();
+      return messages.slice(start, lastIndex);
     }
   }
 
@@ -115,7 +116,8 @@ class ChatStorage {
         userMessage: {
           id: Date.now().toString(),
           role: 'user',
-          content: userMessage,
+          content: userMessage.content,
+          references: userMessage.references,
           timestamp: new Date().toISOString()
         },
         aiMessage: null

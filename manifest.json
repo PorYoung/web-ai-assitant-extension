@@ -11,7 +11,8 @@
   },
   "permissions": [
     "sidePanel",
-    "activeTab"
+    "activeTab",
+    "contextMenus"
   ],
   "side_panel": {
     "default_path": "sidepanel.html"
