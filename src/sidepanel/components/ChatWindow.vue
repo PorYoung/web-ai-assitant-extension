@@ -30,6 +30,7 @@ import MessageBubble from './MessageBubble.vue';
 import ChatInput from './ChatInput.vue';
 import { chatStorage } from '../utils/storage';
 import { aiService } from '../services/aiService';
+import { referenceService } from '../services/referenceService';
 
 const props = defineProps({
   sessionId: {
@@ -81,74 +82,9 @@ const handleSendMessage = async (message) => {
 
   console.debug(recentMessages);
 
-
   // 处理引用内容
   const references = message.references || [];
-  const referenceContexts = [];
-
-  let textTypeRefContexts = "### 你需要基于用户提供的引用内容回答用户的问题，用户引用的内容如下：\n\n";
-  let textTypeRefContextsNum = 0;
-  let pageTypeRefContexts = "### 你需要基于用户提供的引用网页回答用户的问题，用户引用的网页内容如下：\n\n";
-  let pageTypeRefContextsNum = 0;
-
-  for (const ref of references) {
-    if (ref.type === 'text') {
-      // 文本类型的引用直接添加
-      textTypeRefContextsNum++;
-      textTypeRefContexts += `======\n引用${textTypeRefContextsNum}. ${ref.content}\n======\n\n`;
-    } else if (ref.type === 'page') {
-      try {
-        let pageContent = '';
-        // 如果有tabId，尝试通过chrome API获取页面内容
-        if (ref.tabId) {
-          try {
-            const response = await chrome.tabs.sendMessage(ref.tabId, { type: 'getPageContent' });
-            pageContent = response.content;
-          } catch (error) {
-            console.warn('通过tabId获取页面内容失败:', error);
-          }
-        }
-
-        // 如果通过tabId获取失败且有url，尝试通过url获取页面内容
-        if (!pageContent && ref.url) {
-          try {
-            // 通过background脚本获取页面内容
-            const response = await chrome.runtime.sendMessage({
-              type: 'fetchUrl',
-              url: ref.url
-            });
-            
-            if (response.success) {
-              const text = response.data;
-              // 简单处理HTML内容，提取文本
-              const tempDiv = document.createElement('div');
-              tempDiv.innerHTML = text;
-              pageContent = tempDiv.textContent || tempDiv.innerText || '';
-            } else {
-              console.warn('通过background获取页面内容失败:', response.error);
-            }
-          } catch (error) {
-            console.warn('通过url获取页面内容失败:', error);
-          }
-        }
-
-        // 如果成功获取内容，添加到引用上下文
-        if (pageContent) {
-          pageTypeRefContextsNum++;
-          pageTypeRefContexts += `======\n引用网页${pageTypeRefContextsNum}. ${ref.title}\n网页链接：${ref.url}\n网页内容：${pageContent}\n======\n\n`;
-        }
-      } catch (error) {
-        console.error('处理网页引用失败:', error);
-      }
-    }
-  }
-
-  if (textTypeRefContextsNum > 0 || pageTypeRefContextsNum > 0) {
-    referenceContexts.push({
-      role: 'system',
-      content: (textTypeRefContextsNum > 0 ? textTypeRefContexts : '') + (pageTypeRefContextsNum > 0 ? pageTypeRefContexts : ''),
-    });
-  }
+  const referenceContexts = await referenceService.processReferences(references);
 
   // 添加用户消息
   const newRound = chatStorage.addMessageRound(currentSession.value.id, message);

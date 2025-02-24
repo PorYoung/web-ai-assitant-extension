@@ -118,9 +118,15 @@ watch(messageInput, () => {
 // 处理Enter键事件
 const handleEnterKey = (e) => {
   if (e.shiftKey) {
-    // Shift+Enter: 插入换行
+    // Shift+Enter: 在光标位置插入换行
     e.preventDefault();
-    messageInput.value += '\n';
+    const textarea = messageTextarea.value;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    messageInput.value = messageInput.value.substring(0, start) + '\n' + messageInput.value.substring(end);
+    nextTick(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + 1;
+    });
   } else {
     // 仅Enter: 发送消息
     e.preventDefault();

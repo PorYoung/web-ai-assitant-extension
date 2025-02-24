@@ -23,8 +23,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     };
 
     // 检查是否已存在相同URL的引用
-    if (!references.value.some(ref => ref.id === reference.id)) {
-      references.value.push(reference);
+    if (!referencesList.some(ref => ref.id === reference.id)) {
+      referencesList.push(reference);
     }
 
     // 通知侧边栏更新引用列表

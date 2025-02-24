@@ -166,6 +166,7 @@ const formattedTime = computed(() => {
 }
 
 .reference-panel.expanded {
+    width: 100%;
     max-height: 300px;
     opacity: 1;
     padding: 12px;
