@@ -1,8 +1,144 @@
+// 创建侧边栏容器
+function createSidebar() {
+  const sidebar = document.createElement('div');
+  sidebar.id = 'web-ai-assistant-sidebar';
+
+  // 使用CSS变量定义主题色和样式
+  const style = document.createElement('style');
+  style.textContent = `
+    :root {
+      --sidebar-width: 30vw;
+      --sidebar-bg-color: rgba(255, 255, 255, 0.95);
+      --sidebar-shadow: -2px 0 8px rgba(0,0,0,0.1);
+      --theme-color: #1a73e8;
+      --resize-line-width: 4px;
+    }
+  `;
+  document.head.appendChild(style);
+
+  sidebar.style.cssText = `
+    width: var(--sidebar-width);
+    height: 100vh;
+    background: var(--sidebar-bg-color);
+    box-shadow: var(--sidebar-shadow);
+    z-index: 2147483646;
+    transition: transform 0.3s ease;
+    display: flex;
+    position: fixed;
+    top: 0;
+    right: 0;
+    transform: translateX(100%);
+  `;
+
+  // 创建拖动区域容器
+  const resizeContainer = document.createElement('div');
+  resizeContainer.style.cssText = `
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 2147483647;
+  `;
+
+  // 创建拖动指示线
+  const resizeLine = document.createElement('div');
+  resizeLine.style.cssText = `
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--resize-line-width);
+    height: 100%;
+    background-color: var(--theme-color);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  `;
+
+  let isDragging = false;
+  let startX = 0;
+  let startWidth = 0;
+
+  // 添加拖拽事件监听
+  resizeContainer.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    startWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width'));
+    resizeLine.style.opacity = '1';
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    const deltaX = startX - e.clientX;
+    const newWidth = Math.min(Math.max(startWidth + (deltaX / window.innerWidth * 100), 20), 80);
+    document.documentElement.style.setProperty('--sidebar-width', `${newWidth}vw`);
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+
+    isDragging = false;
+    resizeLine.style.opacity = '0';
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+
+  // 添加hover效果
+  resizeContainer.addEventListener('mouseenter', () => {
+    if (!isDragging) {
+      resizeLine.style.opacity = '1';
+    }
+  });
+
+  resizeContainer.addEventListener('mouseleave', () => {
+    if (!isDragging) {
+      resizeLine.style.opacity = '0';
+    }
+  });
+
+  const iframe = document.createElement('iframe');
+  iframe.src = chrome.runtime.getURL('popup.html');
+  iframe.style.cssText = `
+    flex: 1;
+    border: none;
+    background: transparent;
+  `;
+  iframe.setAttribute('allow', 'clipboard-read; clipboard-write');
+  iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin allow-popups allow-modals');
+
+  sidebar.appendChild(resizeContainer);
+  sidebar.appendChild(resizeLine);
+  sidebar.appendChild(iframe);
+  return sidebar;
+}
+
 // 监听来自扩展的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'getPageContent') {
+  if (request.type === 'toggleSidebar') {
+    let sidebar = document.getElementById('web-ai-assistant-sidebar');
+
+    // 如果侧边栏不存在，则创建它
+    if (!sidebar) {
+      sidebar = createSidebar();
+      document.body.appendChild(sidebar);
+    }
+
+    // 获取当前transform值并判断侧边栏是否打开
+    const computedStyle = window.getComputedStyle(sidebar);
+    const transform = computedStyle.getPropertyValue('transform');
+    const isOpen = transform === 'matrix(1, 0, 0, 1, 0, 0)' || transform === 'none';
+
+    // 切换侧边栏状态
+    sidebar.style.transform = isOpen ? 'translateX(100%)' : 'translateX(0)';
+
+    sendResponse({ success: true });
+  } else if (request.type === 'getPageContent') {
     try {
-      // 获取页面主要内容
       const content = extractPageContent();
       sendResponse({ content });
     } catch (error) {
@@ -58,46 +194,28 @@ function getSelectedText() {
   return selection.toString().trim();
 }
 
-// 获取选中文本的位置
-function getSelectionCoords() {
-  const selection = window.getSelection();
-  if (selection.rangeCount === 0) return null;
-
-  const range = selection.getRangeAt(0);
-  const rect = range.getBoundingClientRect();
-  return {
-    x: rect.left + (rect.width / 2),
-    y: rect.top + window.pageYOffset
-  };
-}
-
 // 处理选中文本事件
 let currentButton = null;
 let selectionTimeout = null;
 let hasClicked = false;
 
 document.addEventListener('mouseup', (event) => {
-  // 清除之前的定时器
   if (selectionTimeout) {
     clearTimeout(selectionTimeout);
   }
 
-  // 设置新的定时器，等待选择完成
   selectionTimeout = setTimeout(() => {
-    // 移除现有的按钮
     if (currentButton) {
       currentButton.remove();
       currentButton = null;
     }
 
-    // 获取选中的文本
     const selectedText = getSelectedText();
     if (!selectedText || hasClicked) {
       hasClicked = false;
       return;
     }
 
-    // 使用鼠标事件的位置
     const coords = {
       x: event.pageX,
       y: event.pageY
@@ -105,11 +223,9 @@ document.addEventListener('mouseup', (event) => {
 
     if (!coords) return;
 
-    // 创建并显示按钮
     currentButton = createFloatingButton(coords.x, coords.y);
     document.body.appendChild(currentButton);
 
-    // 点击按钮时发送消息到扩展
     currentButton.addEventListener('click', () => {
       hasClicked = true;
       currentButton.remove();
@@ -120,7 +236,7 @@ document.addEventListener('mouseup', (event) => {
         url: window.location.href
       });
     });
-  }, 200); // 200ms延迟，等待选择完成
+  }, 200);
 });
 
 // 点击页面其他地方时移除按钮
@@ -133,10 +249,8 @@ document.addEventListener('click', (event) => {
 
 // 提取页面主要内容的函数
 function extractPageContent() {
-  // 获取页面标题
   const title = document.title;
 
-  // 获取页面主要内容
   // 1. 尝试获取文章主体内容
   const article = document.querySelector('article');
   if (article) {
@@ -150,32 +264,22 @@ function extractPageContent() {
   }
 
   // 3. 如果没有特定的内容区域标签，获取body中的文本内容
-  const body = document.body;
+  const clone = document.body.cloneNode(true);
 
-  // 创建一个副本以进行内容处理
-  const clone = body.cloneNode(true);
-
-  // 移除脚本标签
-  const scripts = clone.getElementsByTagName('script');
-  while (scripts[0]) {
-    scripts[0].parentNode.removeChild(scripts[0]);
-  }
-
-  // 移除样式标签
-  const styles = clone.getElementsByTagName('style');
-  while (styles[0]) {
-    styles[0].parentNode.removeChild(styles[0]);
-  }
+  // 移除脚本和样式标签
+  ['script', 'style'].forEach(tag => {
+    const elements = clone.getElementsByTagName(tag);
+    while (elements[0]) {
+      elements[0].parentNode.removeChild(elements[0]);
+    }
+  });
 
   // 移除隐藏元素
   const hiddenElements = clone.querySelectorAll('[hidden], [style*="display: none"], [style*="visibility: hidden"]');
   hiddenElements.forEach(el => el.remove());
 
-  // 获取处理后的文本内容
-  const content = clone.innerText;
-
-  // 移除多余的空白字符
-  return content
+  // 获取处理后的文本内容并清理
+  return clone.innerText
     .replace(/\s+/g, ' ')
     .replace(/\n\s*\n/g, '\n')
     .trim();

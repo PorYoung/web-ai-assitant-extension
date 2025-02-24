@@ -21,7 +21,7 @@ class PageReferenceHandler extends ReferenceHandler {
             // 尝试通过tabId获取页面内容
             if (reference.tabId) {
                 try {
-                    const response = await chrome.tabs.sendMessage(reference.tabId, { type: 'getPageContent' });
+                    const response = await sendTabMessage(reference.tabId, { type: 'getPageContent' });
                     pageContent = response.content;
                 } catch (error) {
                     console.warn('通过tabId获取页面内容失败:', error);
@@ -31,7 +31,7 @@ class PageReferenceHandler extends ReferenceHandler {
             // 如果通过tabId获取失败且有url，尝试通过url获取页面内容
             if (!pageContent && reference.url) {
                 try {
-                    const response = await chrome.runtime.sendMessage({
+                    const response = await sendRuntimeMessage({
                         type: 'fetchUrl',
                         url: reference.url
                     });
@@ -98,7 +98,7 @@ class PageReferenceHandler extends ReferenceHandler {
 
         // 移除隐藏元素
         const hiddenElements = body.querySelectorAll('[hidden], [style*="display: none"], [style*="visibility: hidden"]');
-        hiddenElements.forEach(el => el.remove());
+        Array.from(hiddenElements).forEach(el => el.parentNode.removeChild(el));
 
         // 获取处理后的文本内容
         const content = body.innerText;
@@ -164,3 +164,4 @@ export class ReferenceService {
 }
 
 export const referenceService = new ReferenceService();
+import { sendTabMessage, sendRuntimeMessage } from '../utils/chromeUtils';

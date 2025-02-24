@@ -31,6 +31,7 @@ import ChatInput from './ChatInput.vue';
 import { chatStorage } from '../utils/storage';
 import { aiService } from '../services/aiService';
 import { referenceService } from '../services/referenceService';
+import message from '../utils/message';
 
 const props = defineProps({
   sessionId: {
@@ -55,7 +56,7 @@ const handleModelChange = (model) => {
       aiService.initializeModel(model);
     } catch (error) {
       console.error('初始化模型失败:', error);
-      // 这里可以添加错误提示UI
+      message.error('初始化模型失败，请稍后重试');
     }
   }
 };
