@@ -17,6 +17,9 @@
         <button class="toolbar-button" title="清空消息" @click="clearMessages">
           <span>🗑️</span>
         </button>
+        <button v-if="isResponding" class="toolbar-button stop-button" title="停止回答" @click="stopResponse">
+          <span>⏹️</span>
+        </button>
       </div>
     </div>
     <ModelSettings v-model:modelSettingsVisible="modelSettingsVisible" @save="handleModelConfigsSave" />
@@ -27,6 +30,7 @@
 import { ref, watch, nextTick, onMounted } from 'vue';
 import ReferenceList from './ReferenceList.vue';
 import ModelSettings from './ModelSettings.vue';
+import md5 from 'md5';
 
 const props = defineProps({
   initialReferences: {
@@ -35,17 +39,16 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['send', 'modelChange', 'clearMessages']);
+const emit = defineEmits(['send', 'modelChange', 'clearMessages', 'stopResponse']);
+const isResponding = ref(false);
 
 // 添加引用当前页面的函数
 const addCurrentPageReference = () => {
   // 获取当前标签页信息
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs.length > 0 && tabs[0];
-    if (tab) {
-      console.log(tabs);
-
-      if (!tabs[0].url && !tabs[0].id) return;
+    if (tab && tab.url && tab.id) {
+      console.debug(tabs);
 
       const newReference = {
         type: "page",
@@ -73,10 +76,17 @@ const removeReference = (url) => {
   references.value = references.value.filter(ref => ref.url !== url);
 };
 
+// 停止响应
+const stopResponse = () => {
+  emit('stopResponse');
+  isResponding.value = false;
+};
+
 // 发送消息
 const sendMessage = () => {
   if (!messageInput.value.trim()) return;
 
+  isResponding.value = true;
   emit('send', {
     content: messageInput.value.trim(),
     references: references.value
@@ -138,8 +148,8 @@ const modelSettingsVisible = ref(false);
 const modelConfigs = ref([]);
 const selectedModel = ref(null);
 
-// 从localStorage加载模型配置
 onMounted(() => {
+  // 从localStorage加载模型配置
   const savedConfigs = localStorage.getItem('modelConfigs');
   if (savedConfigs) {
     modelConfigs.value = JSON.parse(savedConfigs);
@@ -147,6 +157,42 @@ onMounted(() => {
       selectedModel.value = modelConfigs.value[0];
     }
   }
+
+  // 添加消息监听器
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'addReference') {
+      // 检查是否已存在相同URL的引用
+      if (!references.value.some(ref => ref.id === message.reference.id)) {
+        references.value.push(message.reference);
+      }
+    } else if (message.type === 'addSelectReference') {
+      // 获取当前标签页信息
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        console.debug(tabs);
+        const tab = tabs.length > 0 && tabs[0];
+        const refs = [];
+        if (tab && tab.url) {
+          refs.push({
+            type: "page",
+            id: tab.id,
+            tabId: tab.id,
+            url: tab.url,
+            title: tab.title || '未命名页面',
+            description: tab.description || '',
+          }
+          );
+        }
+        refs.push({
+          type: "text",
+          id: md5(message.selectedText + message.url), // 使用 MD5 生成唯一 ID
+          content: message.selectedText,
+          url: message.url,
+        });
+        references.value.splice(0, references.value.length);
+        references.value.push(...refs);
+      });
+    }
+  });
 });
 
 // 显示模型设置
@@ -266,5 +312,16 @@ textarea:focus {
   outline: none;
   border-color: #1a73e8;
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+}
+
+.stop-button {
+  margin-left: auto;
+  /* 将停止按钮推到最右侧 */
+  color: #d93025;
+  /* 使用红色以示警告 */
+}
+
+.stop-button:hover {
+  background-color: rgba(217, 48, 37, 0.1);
 }
 </style>

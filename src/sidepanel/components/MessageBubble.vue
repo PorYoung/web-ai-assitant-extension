@@ -17,6 +17,12 @@
         <div class="message-bubble">
             <div class="message-content">
                 <p v-html="marked.parse(content)"></p>
+                <button class="copy-button" @click="copyContent" title="复制消息内容">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                </button>
             </div>
             <div v-if="references && references.length > 0" class="message-references">
                 <button class="reference-button" @click="toggleReferencePanel">
@@ -64,6 +70,14 @@ const isExpanded = ref(false);
 
 const toggleReferencePanel = () => {
     isExpanded.value = !isExpanded.value;
+};
+
+const copyContent = async () => {
+    try {
+        await navigator.clipboard.writeText(props.content);
+    } catch (err) {
+        console.error('复制失败:', err);
+    }
 };
 
 const formattedTime = computed(() => {
@@ -118,6 +132,29 @@ const formattedTime = computed(() => {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     transition: all 0.2s ease;
     overflow-x: auto;
+}
+
+.copy-button {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    background: none;
+    border: none;
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+    color: inherit;
+}
+
+.message-content:hover .copy-button {
+    opacity: 0.6;
+}
+
+.copy-button:hover {
+    opacity: 1 !important;
+    background: rgba(0, 0, 0, 0.1);
 }
 
 .message-references {

@@ -1,17 +1,18 @@
 <template>
   <div class="references-list" v-if="references.length > 0">
     <TransitionGroup name="reference-fade" tag="div" class="references-container">
-      <div v-for="ref in references" :key="ref.url" class="reference-tag" :class="{ 'expanded': expandedRef === ref.url }" @click="toggleExpand(ref.url)">
+      <div v-for="ref in references" :key="ref.url" class="reference-tag"
+        :class="{ 'expanded': expandedRef === ref.url }" @click="toggleExpand(ref.url)">
         <div class="reference-content">
           <span class="reference-icon">#</span>
-          <span class="reference-title">{{ ref.title }}</span>
+          <span class="reference-title">{{ ref.title || ref.content }}</span>
         </div>
         <button class="remove-reference" @click.stop="$emit('remove', ref.url)" title="移除引用">
           <span class="remove-icon">×</span>
         </button>
         <Transition name="expand">
           <div v-if="expandedRef === ref.url" class="reference-detail">
-            <div class="reference-url">{{ ref.url }}</div>
+            <div class="reference-url"><a :href="ref.url">{{ ref.url }}</a></div>
             <div class="reference-description" v-if="ref.description">{{ ref.description }}</div>
           </div>
         </Transition>
@@ -89,6 +90,10 @@ const toggleExpand = (url) => {
   color: #1a73e8;
   font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 .remove-reference {
@@ -144,11 +149,21 @@ const toggleExpand = (url) => {
   color: #1a73e8;
   margin-bottom: 4px;
   word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: 2.8em;
 }
 
 .reference-description {
   color: #5f6368;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: 4.2em;
 }
 
 .expand-enter-active,

@@ -5,6 +5,11 @@ chrome.runtime.onInstalled.addListener(() => {
     title: '引用当前页面问AI',
     contexts: ['page']
   });
+  chrome.contextMenus.create({
+    id: "sendSelectedText",
+    title: "使用选中的文本询问AI",
+    contexts: ["selection"]
+  });
 });
 
 // 存储引用列表的数据结构
@@ -22,15 +27,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       timestamp: new Date().toISOString()
     };
 
-    // 检查是否已存在相同URL的引用
-    if (!referencesList.some(ref => ref.id === reference.id)) {
-      referencesList.push(reference);
-    }
-
     // 通知侧边栏更新引用列表
     chrome.runtime.sendMessage({
       type: 'addReference',
       reference: reference
+    });
+  } else if (info.menuItemId === 'sendSelectedText') {
+    const selectedText = info.selectionText;
+    chrome.runtime.sendMessage({
+      type: 'addSelectReference',
+      selectedText: selectedText,
+      url: tab.url
     });
   }
 });
@@ -43,6 +50,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'removeReference') {
     // 从列表中移除指定引用
     referencesList = referencesList.filter(ref => ref.url !== message.url);
+    sendResponse(referencesList);
+  } else if (message.type === 'clearReferences') {
+    // 清空引用列表
+    referencesList = [];
     sendResponse(referencesList);
   } else if (message.type === 'fetchUrl') {
     // 处理URL请求

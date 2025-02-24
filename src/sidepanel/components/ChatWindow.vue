@@ -19,12 +19,12 @@
       </div>
     </div>
     <ChatInput v-if="currentSession" :initial-references="references" @send="handleSendMessage"
-      @modelChange="handleModelChange" @clearMessages="clearMessages" />
+      @modelChange="handleModelChange" @clearMessages="clearMessages" @stopResponse="handleStopResponse" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { marked } from 'marked';
 import MessageBubble from './MessageBubble.vue';
 import ChatInput from './ChatInput.vue';
@@ -45,6 +45,8 @@ const hasMoreMessages = ref(true);
 const currentSession = ref(null);
 const isInitSession = ref(true);
 const streamingContent = ref('');
+const curNewRound = ref(null);
+const curFullResponse = ref('');
 
 // 处理模型变更
 const handleModelChange = (model) => {
@@ -87,9 +89,9 @@ const handleSendMessage = async (message) => {
   const referenceContexts = await referenceService.processReferences(references);
 
   // 添加用户消息
-  const newRound = chatStorage.addMessageRound(currentSession.value.id, message);
-  if (newRound) {
-    currentSession.value.messages.push(newRound);
+  curNewRound.value = chatStorage.addMessageRound(currentSession.value.id, message);
+  if (curNewRound.value) {
+    currentSession.value.messages.push(curNewRound.value);
   }
 
   // 滚动到底部
@@ -100,29 +102,32 @@ const handleSendMessage = async (message) => {
   streamingContent.value = '';
 
   try {
-    const fullResponse = await aiService.streamResponse(
+    curFullResponse.value = await aiService.streamResponse(
       [...referenceContexts, ...recentMessages, {
         role: 'user',
         content: message.content
       }],
       (response) => {
+        curFullResponse.value = response;
         const chunks = marked.parse(response);
         streamingContent.value = chunks;
         scrollToBottom();
       }
     );
     // 添加AI响应消息
-    chatStorage.updateAIResponse(currentSession.value.id, newRound.roundId, fullResponse);
-    const round = currentSession.value.messages.find(msg => msg.roundId === newRound.roundId);
+    chatStorage.updateAIResponse(currentSession.value.id, curNewRound.value.roundId, curFullResponse.value);
+    const round = currentSession.value.messages.find(msg => msg.roundId === curNewRound.value.roundId);
     if (round) {
       round.aiMessage = {
-        content: fullResponse,
+        content: curFullResponse.value,
         timestamp: new Date().toISOString()
       };
     }
-    streamingContent.value = '';
   } catch (error) {
     console.error('AI响应错误:', error);
+  } finally {
+    curFullResponse.value = '';
+    streamingContent.value = '';
   }
   return;
 };
@@ -237,17 +242,17 @@ const handleSendMessageMock = async (message) => {
   if (!currentSession.value) return;
 
   // 添加新的对话轮次，包含引用内容
-  const newRound = chatStorage.addMessageRound(props.sessionId, message);
-  if (newRound) {
-    currentSession.value.messages = [...currentSession.value.messages, newRound];
+  curNewRound.value = chatStorage.addMessageRound(props.sessionId, message);
+  if (curNewRound.value) {
+    currentSession.value.messages = [...currentSession.value.messages, curNewRound.value];
   }
 
   // TODO: 这里添加调用AI接口的逻辑
   const aiResponse = '这是一个模拟的AI回复，请实现实际的AI调用逻辑。';
 
   // 更新AI回复
-  chatStorage.updateAIResponse(props.sessionId, newRound.roundId, aiResponse);
-  const round = currentSession.value.messages.find(msg => msg.roundId === newRound.roundId);
+  chatStorage.updateAIResponse(props.sessionId, curNewRound.value.roundId, aiResponse);
+  const round = currentSession.value.messages.find(msg => msg.roundId === curNewRound.value.roundId);
   if (round) {
     round.aiMessage = {
       id: Date.now().toString(),
@@ -333,13 +338,6 @@ watch(
 onMounted(async () => {
   // 初始化会话
   await initSession();
-
-  // 添加消息监听器
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'addReference') {
-      references.value.push(message.reference);
-    }
-  });
 });
 // 清空消息
 const clearMessages = async () => {
@@ -353,6 +351,24 @@ const clearMessages = async () => {
 
   // 等待DOM更新后调整滚动位置
   await nextTick();
+};
+
+// 添加停止响应的处理函数
+const handleStopResponse = () => {
+  // 添加AI响应消息
+  chatStorage.updateAIResponse(currentSession.value.id, curNewRound.value.roundId, curFullResponse.value);
+  const round = currentSession.value.messages.find(msg => msg.roundId === curNewRound.value.roundId);
+  if (round) {
+    round.aiMessage = {
+      content: curFullResponse.value,
+      timestamp: new Date().toISOString()
+    };
+  }
+  // 调用 AI 服务的停止方法
+  aiService.stopResponse();
+  // 清空流式内容
+  streamingContent.value = '';
+  curFullResponse.value = '';
 };
 </script>
 

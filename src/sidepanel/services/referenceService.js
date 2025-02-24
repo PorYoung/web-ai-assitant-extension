@@ -8,7 +8,7 @@ class ReferenceHandler {
 // 文本类型引用处理器
 class TextReferenceHandler extends ReferenceHandler {
     async handle(reference) {
-        return `======\n引用. ${reference.content}\n======\n\n`;
+        return `======\n选中文本内容: ${reference.content}\n文本来源: ${reference.url}\n======\n\n`;
     }
 }
 
@@ -131,10 +131,10 @@ export class ReferenceService {
         }
 
         const referenceContexts = [];
-        let textTypeRefContexts = "### 你需要基于用户提供的引用内容回答用户的问题，用户引用的内容如下：\n\n";
-        let textTypeRefContextsNum = 0;
-        let pageTypeRefContexts = "### 你需要基于用户提供的引用网页回答用户的问题，用户引用的网页内容如下：\n\n";
+        let pageTypeRefContexts = "### 用户提供的网页背景知识如下：\n\n";
         let pageTypeRefContextsNum = 0;
+        let textTypeRefContexts = "### 你需要基于用户选中的文本回答用户的问题，用户选中的文本如下：\n\n";
+        let textTypeRefContextsNum = 0;
 
         for (const ref of references) {
             const handler = ReferenceHandlerFactory.getHandler(ref.type);
@@ -155,8 +155,7 @@ export class ReferenceService {
         if (textTypeRefContextsNum > 0 || pageTypeRefContextsNum > 0) {
             referenceContexts.push({
                 role: 'system',
-                content: (textTypeRefContextsNum > 0 ? textTypeRefContexts : '') +
-                    (pageTypeRefContextsNum > 0 ? pageTypeRefContexts : '')
+                content: (pageTypeRefContextsNum > 0 ? pageTypeRefContexts : '') + (textTypeRefContextsNum > 0 ? textTypeRefContexts : '')
             });
         }
 

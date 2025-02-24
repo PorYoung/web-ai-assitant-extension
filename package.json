@@ -12,6 +12,7 @@
     "@langchain/core": "^0.3.40",
     "@langchain/openai": "^0.4.4",
     "marked": "^9.1.5",
+    "md5": "^2.3.0",
     "vue": "^3.3.4"
   },
   "devDependencies": {
