@@ -157,3 +157,25 @@ export const storageGet = async (keys) => {
         return {};
     }
 };
+
+/**
+ * 发送消息到background script
+ * @param {object} message - 消息内容
+ * @param {number} [timeout=5000] - 超时时间（毫秒）
+ * @returns {Promise<any>}
+ */
+export const sendRuntimeMessage = async (message, timeout = 5000) => {
+    try {
+        if (isV3) {
+            return await chrome.runtime.sendMessage(message);
+        } else {
+            return await chromeApiCall(
+                (callback) => chrome.runtime.sendMessage(message, callback),
+                timeout
+            );
+        }
+    } catch (error) {
+        handleError(error, 'sendRuntimeMessage');
+        return null;
+    }
+};

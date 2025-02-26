@@ -1,3 +1,5 @@
+import { notification } from '@/utils/notification';
+
 // 引用内容处理器接口
 class ReferenceHandler {
     async handle(reference) {
@@ -56,12 +58,15 @@ class PageReferenceHandler extends ReferenceHandler {
             }
 
             if (!pageContent) {
+                console.error('获取页面内容失败');
+                notification.error('获取页面内容失败，请刷新页面重试');
                 return '';
             }
 
             return `======\n引用网页. ${reference.title}\n网页链接：${reference.url}\n网页内容：${pageContent}\n======\n\n`;
         } catch (error) {
             console.error('处理网页引用失败:', error);
+            notification.error(`处理网页引用失败: ${error.message}`);
             return '';
         }
     }

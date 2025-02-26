@@ -11,6 +11,7 @@ export default defineConfig({
   },
   build: {
     outDir: `dist/web-ai-${process.env.npm_package_version}-${process.env.MANIFEST_VERSION || 'v2'}`,
+    sourcemap: true,
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'popup.html'),

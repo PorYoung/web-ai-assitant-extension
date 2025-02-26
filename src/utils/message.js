@@ -1,34 +1,26 @@
-import { ElMessage } from 'element-plus';
+import { notification } from './notification';
 
 const message = {
   success(message) {
-    ElMessage({
-      message,
-      type: 'success',
+    notification.success(message, {
       duration: 3000
     });
   },
 
   error(message) {
-    ElMessage({
-      message,
-      type: 'error',
+    notification.error(message, {
       duration: 5000
     });
   },
 
   warning(message) {
-    ElMessage({
-      message,
-      type: 'warning',
+    notification.warning(message, {
       duration: 4000
     });
   },
 
   info(message) {
-    ElMessage({
-      message,
-      type: 'info',
+    notification.info(message, {
       duration: 3000
     });
   }

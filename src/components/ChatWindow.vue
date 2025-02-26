@@ -29,6 +29,7 @@
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { marked } from 'marked';
+import { confirm } from '@/utils/confirm';
 import MessageBubble from './MessageBubble.vue';
 import ChatInput from './ChatInput.vue';
 import { chatStorage } from '../utils/storage';
@@ -285,7 +286,12 @@ const deleteMessage = async (roundId) => {
     return;
   }
 
-  if (confirm('确定要删除这轮对话吗？')) {
+  confirm({
+    title: '提示',
+    message: '确定要删除这轮对话吗？',
+    confirmText: '确定',
+    cancelText: '取消'
+  }).then(async () => {
     // 删除消息
     chatStorage.deleteMessageRound(props.sessionId, roundId);
     currentSession.value.messages = currentSession.value.messages.filter(msg => msg.roundId !== roundId);
@@ -311,7 +317,7 @@ const deleteMessage = async (roundId) => {
       // 等待DOM更新后调整滚动位置
       await nextTick();
     }
-  }
+  });
 };
 
 // 监听会话变化

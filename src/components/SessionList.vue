@@ -17,7 +17,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { chatStorage } from '../utils/storage';
+import { confirm } from '@/utils/confirm';
+import { chatStorage } from '@/utils/storage';
 
 const sessions = ref([]);
 const currentSessionId = ref('');
@@ -43,13 +44,18 @@ const createNewSession = () => {
 
 // 删除会话
 const deleteSession = (sessionId) => {
-  if (confirm('确定要删除这个会话吗？')) {
+  confirm({
+    title: '提示',
+    message: '确定要删除这个会话吗？',
+    confirmText: '确定',
+    cancelText: '取消'
+  }).then(() => {
     chatStorage.deleteSession(sessionId);
     if (currentSessionId.value === sessionId) {
       currentSessionId.value = '';
     }
     loadSessions();
-  }
+  }).catch(() => { });
 };
 
 // 选择会话

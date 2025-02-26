@@ -1,4 +1,4 @@
-import { sendMessageToTab as adaptedSendMessageToTab } from './chromeApiAdapter';
+import { sendMessageToTab as adaptedSendMessageToTab, sendRuntimeMessage as adaptedSendRuntimeMessage } from './chromeApiAdapter';
 
 /**
  * 封装Chrome API的异步调用
@@ -50,9 +50,10 @@ export const sendTabMessage = async (tabId, message) => {
  * @param {number} [timeout=5000] - 超时时间（毫秒）
  * @returns {Promise} - 返回Promise对象
  */
-export const sendRuntimeMessage = (message, timeout = 5000) => {
-    return chromeApiCall(
-        (callback) => chrome.runtime.sendMessage(message, callback),
-        timeout
-    );
+export const sendRuntimeMessage = async (message, timeout = 5000) => {
+    try {
+        return await adaptedSendRuntimeMessage(message, timeout);
+    } catch (error) {
+        throw new Error(`发送消息到background script失败: ${error.message}`);
+    }
 };
