@@ -15,15 +15,6 @@ class AIService {
 
         config.parameters = config.parameters || {};
 
-        // 检查配置是否有变化
-        if (this.currentConfig &&
-            this.currentConfig.apiUrl === config.apiUrl &&
-            this.currentConfig.apiKey === config.apiKey &&
-            this.currentConfig.modelName === config.modelName &&
-            JSON.stringify(this.currentConfig.parameters) === JSON.stringify(config.parameters)) {
-            return; // 配置没有变化，无需重新初始化
-        }
-
         this.currentConfig = config;
 
         this.llm = new ChatOpenAI({
@@ -36,7 +27,8 @@ class AIService {
             },
             configuration: {
                 baseURL: config.apiUrl,
-            }
+            },
+            maxRetries: 0,
         });
     }
 

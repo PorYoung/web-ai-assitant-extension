@@ -102,7 +102,25 @@ function createSidebar() {
   });
 
   const iframe = document.createElement('iframe');
-  iframe.src = chrome.runtime.getURL('popup.html');
+  // 从Chrome Storage中获取自定义URL，添加错误处理
+  try {
+    chrome.storage.sync.get(['sidebarUrl'], function(result) {
+      if (chrome.runtime.lastError) {
+        console.warn('获取自定义URL失败:', chrome.runtime.lastError);
+        iframe.src = chrome.runtime.getURL('popup.html');
+        return;
+      }
+      // 如果是设置页面，则始终加载popup.html
+      if (result.sidebarUrl && !window.location.href.includes('chrome-extension://')) {
+        iframe.src = result.sidebarUrl;
+      } else {
+        iframe.src = chrome.runtime.getURL('popup.html');
+      }
+    });
+  } catch (error) {
+    console.error('访问storage时出错:', error);
+    iframe.src = chrome.runtime.getURL('popup.html');
+  }
   iframe.style.cssText = `
     flex: 1;
     border: none;
@@ -126,6 +144,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (!sidebar) {
       sidebar = createSidebar();
       document.body.appendChild(sidebar);
+      document.documentElement.style.transition = 'width 0.3s ease';
     }
 
     // 获取当前transform值并判断侧边栏是否打开
@@ -135,6 +154,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // 切换侧边栏状态
     sidebar.style.transform = isOpen ? 'translateX(100%)' : 'translateX(0)';
+    document.documentElement.style.width = isOpen ? '100%' : 'calc(100% - var(--sidebar-width))';
 
     sendResponse({ success: true });
   } else if (request.type === 'getPageContent') {

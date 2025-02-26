@@ -12,7 +12,8 @@
   "permissions": [
     "activeTab",
     "contextMenus",
-    "tabs"
+    "tabs",
+    "storage"
   ],
   "web_accessible_resources": [
     "popup.html"
@@ -42,5 +43,6 @@
         "assets/content_script.js"
       ]
     }
-  ]
+  ],
+  "options_page": "options.html"
 }

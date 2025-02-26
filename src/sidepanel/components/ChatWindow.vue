@@ -5,9 +5,11 @@
         <div v-for="round in currentSession.messages" :key="round.roundId" class="message-round">
           <MessageBubble v-if="round.userMessage" message-type="user" :content="round.userMessage.content"
             :timestamp="round.userMessage.timestamp" :references="round.userMessage.references"
-            @delete="deleteMessage(round.roundId)" />
+            @delete="deleteMessage(round.roundId)"
+            :disabled="isResponding && round.roundId === curNewRound.value?.roundId" />
           <MessageBubble v-if="round.aiMessage" message-type="assistant" :content="round.aiMessage.content"
-            :timestamp="round.aiMessage.timestamp" @delete="deleteMessage(round.roundId)" />
+            :timestamp="round.aiMessage.timestamp" @delete="deleteMessage(round.roundId)"
+            :disabled="isResponding && round.roundId === curNewRound.value?.roundId" />
         </div>
         <div v-if="streamingContent" class="message-round">
           <MessageBubble message-type="assistant" :content="streamingContent" :timestamp="new Date()"
@@ -18,8 +20,9 @@
         <p>请选择或创建一个会话</p>
       </div>
     </div>
-    <ChatInput v-if="currentSession" :initial-references="references" @send="handleSendMessage"
-      @modelChange="handleModelChange" @clearMessages="clearMessages" @stopResponse="handleStopResponse" />
+    <ChatInput v-if="currentSession" :initial-references="references" :is-ai-responding="isResponding"
+      @send="handleSendMessage" @modelChange="handleModelChange" @clearMessages="clearMessages"
+      @stopResponse="handleStopResponse" />
   </div>
 </template>
 
@@ -48,6 +51,7 @@ const isInitSession = ref(true);
 const streamingContent = ref('');
 const curNewRound = ref(null);
 const curFullResponse = ref('');
+const isResponding = ref(false);
 
 // 处理模型变更
 const handleModelChange = (model) => {
@@ -101,6 +105,7 @@ const handleSendMessage = async (message) => {
 
   // 开始AI响应
   streamingContent.value = '';
+  isResponding.value = true;
 
   try {
     curFullResponse.value = await aiService.streamResponse(
@@ -115,20 +120,23 @@ const handleSendMessage = async (message) => {
         scrollToBottom();
       }
     );
-    // 添加AI响应消息
-    chatStorage.updateAIResponse(currentSession.value.id, curNewRound.value.roundId, curFullResponse.value);
-    const round = currentSession.value.messages.find(msg => msg.roundId === curNewRound.value.roundId);
-    if (round) {
-      round.aiMessage = {
-        content: curFullResponse.value,
-        timestamp: new Date().toISOString()
-      };
+    if (curFullResponse.value) {
+      // 添加AI响应消息
+      chatStorage.updateAIResponse(currentSession.value.id, curNewRound.value.roundId, curFullResponse.value);
+      const round = currentSession.value.messages.find(msg => msg.roundId === curNewRound.value.roundId);
+      if (round) {
+        round.aiMessage = {
+          content: curFullResponse.value,
+          timestamp: new Date().toISOString()
+        };
+      }
     }
   } catch (error) {
     console.error('AI响应错误:', error);
   } finally {
     curFullResponse.value = '';
     streamingContent.value = '';
+    isResponding.value = false;
   }
   return;
 };
@@ -272,6 +280,11 @@ const handleSendMessageMock = async (message) => {
 
 // 删除消息
 const deleteMessage = async (roundId) => {
+  // 如果正在响应且要删除的是当前响应的消息，则不允许删除
+  if (isResponding.value && roundId === curNewRound.value?.roundId) {
+    return;
+  }
+
   if (confirm('确定要删除这轮对话吗？')) {
     // 删除消息
     chatStorage.deleteMessageRound(props.sessionId, roundId);
@@ -304,7 +317,11 @@ const deleteMessage = async (roundId) => {
 // 监听会话变化
 watch(
   () => props.sessionId,
-  async () => {
+  async (newId, oldId) => {
+    if (oldId && isResponding.value) {
+      // 如果切换会话时正在响应，则终止响应
+      handleStopResponse();
+    }
     await initSession();
   }
 );
@@ -370,6 +387,7 @@ const handleStopResponse = () => {
   // 清空流式内容
   streamingContent.value = '';
   curFullResponse.value = '';
+  isResponding.value = false;
 };
 </script>
 

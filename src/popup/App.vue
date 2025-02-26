@@ -5,9 +5,13 @@
         <button class="menu-btn" @click="toggleDrawer">
           <span class="menu-icon">☰</span>
         </button>
-        <h2 class="title">Web AI Assistant</h2>
+        <h2 class="title">{{ showSettings ? '设置' : 'Web AI Assistant' }}</h2>
+        <button class="settings-btn" @click="toggleSettings">
+          <span class="settings-icon">{{ showSettings ? '←' : '⚙' }}</span>
+        </button>
       </div>
-      <ChatWindow :sessionId="currentSessionId" />
+      <Settings v-if="showSettings" @back="showSettings = false" />
+      <ChatWindow v-else :sessionId="currentSessionId" />
     </div>
     <div class="drawer-overlay" v-if="isDrawerOpen" @click="closeDrawer"></div>
     <div class="drawer" :class="{ 'drawer-open': isDrawerOpen }">
@@ -26,10 +30,12 @@
 import { ref, computed } from 'vue';
 import ChatWindow from '../sidepanel/components/ChatWindow.vue';
 import SessionList from '../sidepanel/components/SessionList.vue';
+import Settings from './components/Settings.vue';
 
 const sessionList = ref(null);
 const currentSessionId = computed(() => sessionList.value?.currentSessionId || '');
 const isDrawerOpen = ref(false);
+const showSettings = ref(false);
 
 const toggleDrawer = () => {
   isDrawerOpen.value = !isDrawerOpen.value;
@@ -37,6 +43,13 @@ const toggleDrawer = () => {
 
 const closeDrawer = () => {
   isDrawerOpen.value = false;
+};
+
+const toggleSettings = () => {
+  showSettings.value = !showSettings.value;
+  if (showSettings.value) {
+    closeDrawer();
+  }
 };
 </script>
 
@@ -92,6 +105,27 @@ body {
 }
 
 .menu-icon {
+  font-size: 20px;
+  display: flex;
+}
+
+.settings-btn {
+  background: none;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  color: #5f6368;
+  margin-left: auto;
+}
+
+.settings-btn:hover {
+  background-color: rgba(26, 115, 232, 0.08);
+  color: #1a73e8;
+}
+
+.settings-icon {
   font-size: 20px;
   display: flex;
 }

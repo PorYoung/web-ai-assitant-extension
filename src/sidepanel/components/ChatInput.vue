@@ -3,18 +3,18 @@
     <ReferenceList :references="references" @remove="removeReference" />
     <div class="chat-input-wrapper">
       <textarea v-model="messageInput" @keydown.enter="handleEnterKey" @input="adjustTextareaHeight"
-        placeholder="输入消息，按Enter发送，Shift+Enter换行" ref="messageTextarea" rows="1"></textarea>
+        placeholder="输入消息，按Enter发送，Shift+Enter换行" ref="messageTextarea" rows="1" :disabled="isResponding"></textarea>
       <div class="chat-toolbar">
-        <select class="model-selector" v-model="selectedModel">
+        <select class="model-selector" v-model="selectedModel" :disabled="isResponding">
           <option v-for="model in modelConfigs" :key="model.name" :value="model">{{ model.name || '未命名模型' }}</option>
         </select>
-        <button class="toolbar-button" title="引用当前页面" @click="addCurrentPageReference">
+        <button class="toolbar-button" title="引用当前页面" @click="addCurrentPageReference" :disabled="isResponding">
           <span>#️⃣</span>
         </button>
-        <button class="toolbar-button" title="模型设置" @click="showModelSettings">
+        <button class="toolbar-button" title="模型设置" @click="showModelSettings" :disabled="isResponding">
           <span>⚙️</span>
         </button>
-        <button class="toolbar-button" title="清空消息" @click="clearMessages">
+        <button class="toolbar-button" title="清空消息" @click="clearMessages" :disabled="isResponding">
           <span>🗑️</span>
         </button>
         <button v-if="isResponding" class="toolbar-button stop-button" title="停止回答" @click="stopResponse">
@@ -36,7 +36,16 @@ const props = defineProps({
   initialReferences: {
     type: Array,
     default: () => []
+  },
+  isAiResponding: {
+    type: Boolean,
+    default: false
   }
+});
+
+// 监听AI响应状态的变化
+watch(() => props.isAiResponding, (newValue) => {
+  isResponding.value = newValue;
 });
 
 const emit = defineEmits(['send', 'modelChange', 'clearMessages', 'stopResponse']);
@@ -203,7 +212,8 @@ const showModelSettings = () => {
 // 处理模型配置保存
 const handleModelConfigsSave = (configs) => {
   modelConfigs.value = configs;
-  if (configs.length > 0 && !configs.includes(selectedModel.value)) {
+  // 如果当前选中的模型不在新配置中，则选择第一个模型
+  if (configs.length > 0 && !configs.some(config => config.name === selectedModel.value?.name)) {
     selectedModel.value = configs[0];
   }
   emit('modelChange', selectedModel.value);
@@ -323,5 +333,15 @@ textarea:focus {
 
 .stop-button:hover {
   background-color: rgba(217, 48, 37, 0.1);
+}
+
+.toolbar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+textarea:disabled {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
 }
 </style>
