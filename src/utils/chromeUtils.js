@@ -1,3 +1,5 @@
+import { sendMessageToTab as adaptedSendMessageToTab } from './chromeApiAdapter';
+
 /**
  * 封装Chrome API的异步调用
  * @param {Function} apiCall - 执行Chrome API调用的函数
@@ -33,11 +35,13 @@ export const chromeApiCall = (apiCall, timeout = 5000) => {
  * @param {number} [timeout=5000] - 超时时间（毫秒）
  * @returns {Promise} - 返回Promise对象
  */
-export const sendTabMessage = (tabId, message, timeout = 5000) => {
-    return chromeApiCall(
-        (callback) => chrome.tabs.sendMessage(tabId, message, callback),
-        timeout
-    );
+export const sendTabMessage = async (tabId, message) => {
+    try {
+        const response = await adaptedSendMessageToTab(tabId, message);
+        return response;
+    } catch (error) {
+        throw new Error(`发送消息到标签页失败: ${error.message}`);
+    }
 };
 
 /**

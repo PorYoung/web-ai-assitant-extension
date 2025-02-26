@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build:v2": "vite build --config vite.config.v2.js",
+    "build:v3": "cross-env MANIFEST_VERSION=v3 vite build --config vite.config.v3.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.2.3",
+    "cross-env": "^7.0.3",
     "fs-extra": "^11.3.0",
     "vite": "^4.4.5"
   }

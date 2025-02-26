@@ -28,9 +28,9 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import ChatWindow from '../sidepanel/components/ChatWindow.vue';
-import SessionList from '../sidepanel/components/SessionList.vue';
-import Settings from './components/Settings.vue';
+import ChatWindow from '@/components/ChatWindow.vue';
+import SessionList from '@/components/SessionList.vue';
+import Settings from '@/components/Settings.vue';
 
 const sessionList = ref(null);
 const currentSessionId = computed(() => sessionList.value?.currentSessionId || '');

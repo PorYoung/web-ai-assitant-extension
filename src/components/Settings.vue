@@ -3,19 +3,14 @@
     <div class="settings-form">
       <div class="form-group">
         <label for="sidebarUrl">自定义侧边栏URL：</label>
-        <input
-          type="url"
-          id="sidebarUrl"
-          v-model="sidebarUrl"
-          placeholder="请输入URL地址"
-          @input="handleUrlChange"
-        />
+        <input type="url" id="sidebarUrl" v-model="sidebarUrl" placeholder="请输入URL地址" />
       </div>
       <div class="url-preview" v-if="sidebarUrl">
         预览：{{ sidebarUrl }}
       </div>
       <div class="form-footer">
-        <button class="save-btn" @click="$emit('back')">返回</button>
+        <button class="action-btn" @click="handleUrlChange">保存</button>
+        <button class="action-btn" @click="$emit('back')">返回</button>
       </div>
     </div>
   </div>
@@ -30,6 +25,7 @@ const sidebarUrl = ref('');
 onMounted(async () => {
   try {
     const result = await chrome.storage.sync.get(['sidebarUrl']);
+    console.debug(result);
     if (result.sidebarUrl) {
       sidebarUrl.value = result.sidebarUrl;
     }
@@ -106,7 +102,7 @@ input:focus {
   justify-content: flex-end;
 }
 
-.save-btn {
+.action-btn {
   padding: 8px 16px;
   background-color: #1a73e8;
   color: white;
@@ -115,13 +111,14 @@ input:focus {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
+  margin-left: 4px;
 }
 
-.save-btn:hover {
+.action-btn:hover {
   background-color: #1557b0;
 }
 
-.save-btn:active {
+.action-btn:active {
   transform: scale(0.98);
 }
 </style>
